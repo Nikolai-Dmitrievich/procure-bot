@@ -1,0 +1,14 @@
+{
+  "shop": "ТестовыйМагазин",
+  "categories": [{"id": 1, "name": "Смартфоны"}],
+  "goods": [{
+    "id": "1",
+    "name": "iPhone 17 Pro Max", 
+    "category": 1,
+    "price": 110000,
+    "price_rrc": 108000,
+    "quantity": 3,
+    "model": "A3527",
+    "parameters": {"color": "blue", "memory": "256GB"}
+  }]
+}
