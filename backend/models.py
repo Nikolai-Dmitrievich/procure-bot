@@ -52,6 +52,7 @@ class Product(models.Model):
     name = models.CharField(max_length=80, verbose_name='Название')
     category = models.ForeignKey(Category, verbose_name='Категория', related_name='products', blank=True,
                                  on_delete=models.CASCADE)
+    description = models.TextField(blank=True, default='')
 
     class Meta:
         verbose_name = 'Продукт'

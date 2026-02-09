@@ -12,7 +12,7 @@ class User(AbstractUser):
     """
     Стандартная модель пользователей
     """
-    REQUIRED_FIELDS = ['username']
+    REQUIRED_FIELDS = []
     USERNAME_FIELD = 'email'
     objects = UserManager()
     company = models.CharField(verbose_name='Компания', max_length=40, blank=True)

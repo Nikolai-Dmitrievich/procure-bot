@@ -2,7 +2,7 @@
   "shop": "ТестовыйМагазин",
   "categories": [{"id": 1, "name": "Смартфоны"}],
   "goods": [{
-    "id": "1",
+    "id": 1,
     "name": "iPhone 17 Pro Max", 
     "category": 1,
     "price": 110000,
