@@ -1,0 +1,8 @@
+__pycache__/
+venv/
+.git/
+.gitignore
+.coverage
+.env.example
+staticfiles/
+exports/

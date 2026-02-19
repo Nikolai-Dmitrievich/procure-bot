@@ -1,0 +1,15 @@
+shop: "YAML Тестовый Магазин"
+categories:
+  - id: 999
+    name: "Тестовая категория YAML" 
+goods:
+  - id: 777
+    name: "iPhone YAML Test"
+    category: 999
+    model: "YAML-TEST"
+    price: 99999
+    price_rrc: 120000
+    quantity: 42
+    parameters:
+      color: "золотой"
+      memory: "1TB"

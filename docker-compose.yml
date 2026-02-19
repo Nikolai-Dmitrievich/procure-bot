@@ -1,13 +1,46 @@
 services:
   db:
     image: postgres:16-alpine
-    ports:
-      - '5432:5432'
+    ports: ['5432:5432']
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:alpine
-    ports:
-      - '6379:6379'
+    ports: ['6379:6379']
+
+  web:
+    build: .
+    volumes: [.:/app]
+    ports: ["8000:8000"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - DB_HOST=${DB_HOST}
+      - REDIS_HOST=${REDIS_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+
+  celery:
+    build: .
+    command: celery -A procure worker --loglevel=info
+    volumes: [.:/app]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment: 
+      - DB_HOST=${DB_HOST}
+      - REDIS_HOST=${REDIS_HOST}
