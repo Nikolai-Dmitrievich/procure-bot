@@ -72,6 +72,9 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
+        from backend.tasks import send_email_verification
+        send_email_verification.delay(user.id)
+
         return Response(
             UserSerializer(user).data,
             status=status.HTTP_201_CREATED
