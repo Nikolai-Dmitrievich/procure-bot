@@ -92,27 +92,35 @@ def send_email(order_id):
 
 
 @shared_task(bind=True, max_retries=3)
-def partner_import(self, url, user_id):
+def partner_import(self, source, user_id):
     """
     Импорт прайс-листа партнера в базу данных
     Args:
-        url: URL прайс-листа или путь к файлу
+        source: bytes (содержимое файла) ИЛИ URL string
         user_id: ID пользователя-магазина
     Returns:
         str: Отчёт об импорте
     """
     shop_user = User.objects.get(id=user_id)
-    original_url = url
-    url = url.replace(settings.EXTERNAL_URL, settings.INTERNAL_URL)
 
     try:
-        response = get(url, timeout=10)
-        response.raise_for_status()
-    except:
-        response = get(original_url, timeout=10)
-        response.raise_for_status()
+        if isinstance(source, bytes):
+            content = source.decode('utf-8')
+        else:
+            original_url = source
+            url = source.replace(settings.EXTERNAL_URL, settings.INTERNAL_URL)
 
-    content = response.content.decode('utf-8')
+            try:
+                response = get(url, timeout=10)
+                response.raise_for_status()
+            except:
+                response = get(original_url, timeout=10)
+                response.raise_for_status()
+
+            content = response.content.decode('utf-8')
+
+    except Exception as e:
+        return f"Ошибка чтения: {str(e)}"
 
     try:
         data = json.loads(content)

@@ -63,18 +63,12 @@ class PartnerUpdate(APIView):
         price_file = serializer.validated_data.get('price_file')
 
         if price_file:
-            import tempfile
-            import os
+            file_content = b''
+            for chunk in price_file.chunks():
+                file_content += chunk
+            
+            task = partner_import.delay(file_content, request.user.id)
 
-            with tempfile.NamedTemporaryFile(
-                mode='wb', suffix='.yaml', delete=False
-            ) as tmp_file:
-                for chunk in price_file.chunks():
-                    tmp_file.write(chunk)
-                file_path = tmp_file.name
-
-            task = partner_import.delay(file_path, request.user.id)
-            os.unlink(file_path)
         else:
             task = partner_import.delay(url, request.user.id)
 
