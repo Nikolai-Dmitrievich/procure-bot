@@ -71,6 +71,10 @@ class User(AbstractUser):
         default=False,
         verbose_name='Email подтвержден'
         )
+    is_social_user = models.BooleanField(
+        default=False,
+        verbose_name='Через соцсети'
+    )
 
     def __str__(self):
         return f'{self.get_full_name() or self.email}'

@@ -157,7 +157,6 @@ procure-bot/
 │   ├── apps.py                 # Django App конфигурация
 │   ├── models.py               # Custom User модель
 │   ├── serializers.py          # DRF сериализаторы
-│   ├── signals.py              # Сигналы Django (post_save и др.)
 │   ├── views.py                # API представления
 │   ├── urls.py                 # URL маршруты users
 │   └── tests.py                # Тесты users

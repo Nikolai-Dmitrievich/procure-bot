@@ -22,6 +22,7 @@ from drf_spectacular.views import (
     SpectacularRedocView
 )
 
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include('backend.urls')),
@@ -37,4 +38,5 @@ urlpatterns = [
         SpectacularRedocView.as_view(url_name='schema'),
         name='redoc'
         ),
+    path('social/', include('social_django.urls', namespace='social')),
 ]

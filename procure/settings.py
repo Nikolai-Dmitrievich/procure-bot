@@ -46,9 +46,17 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'rest_framework',
     'rest_framework_simplejwt',
+    'social_django',
     'backend',
     'users',
 ]
+
+AUTHENTICATION_BACKENDS = (
+    'social_core.backends.yandex.YandexOAuth2',
+    'django.contrib.auth.backends.ModelBackend',
+)
+
+SOCIAL_AUTH_URL_NAMESPACE = 'social'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -141,8 +149,8 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',
-        'user': '1000/hour',
+        'anon': '1000000/hour',
+        'user': '1000000/hour',
     },
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -161,13 +169,27 @@ SIMPLE_JWT = {
 SPECTACULAR_SETTINGS = {
     'TITLE': 'ProcureBot API',
     'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
+    'SERVE_INCLUDE_SCHEMA': True,
     'SWAGGER_UI_SETTINGS': {
         'deepLinking': True,
         'persistAuthorization': True,
     },
     'COMPONENT_SPLIT_REQUEST': True,
 }
+
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'social_core.pipeline.user.create_user',
+    'users.pipeline.save_social_profile',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+)
+
 
 CACHES = {
     'default': {
@@ -206,3 +228,18 @@ INTERNAL_URL = os.getenv('INTERNAL_URL')
 EXTERNAL_URL = os.getenv('EXTERNAL_URL')
 
 BASE_URL = os.getenv('BASE_URL')
+
+SOCIAL_AUTH_YANDEX_OAUTH2_KEY = os.getenv('YANDEX_CLIENT_ID')
+SOCIAL_AUTH_YANDEX_OAUTH2_SECRET = os.getenv('YANDEX_CLIENT_SECRET')
+SOCIAL_AUTH_YANDEX_OAUTH2_SCOPE = ['login:email', 'login:info', 'login:avatar']
+
+SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
+SOCIAL_AUTH_SANITIZE_REDIRECTS = False
+
+
+SOCIAL_AUTH_YANDEX_OAUTH2_CALLBACK_URL = os.getenv('YANDEX_REDIRECT_URI')
+LOGIN_REDIRECT_URL = '/api/v1/auth/token/'

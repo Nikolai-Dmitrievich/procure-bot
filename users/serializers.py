@@ -86,3 +86,7 @@ class UserSerializer(serializers.ModelSerializer):
             'company', 'position', 'type', 'is_active', 'date_joined'
         ]
         read_only_fields = ['id', 'type', 'is_active']
+
+
+class SocialTokenSerializer(serializers.Serializer):
+    social_email = serializers.EmailField()
