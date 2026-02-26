@@ -2,7 +2,7 @@ test:
 	docker compose exec web coverage run manage.py test backend users && \
 	docker compose exec web coverage report -m
 up:
-	docker compose up --build
+	docker compose up -d --build
 
 down:
 	docker compose down

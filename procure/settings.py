@@ -36,6 +36,7 @@ ALLOWED_HOSTS = ['*'] if DEBUG == 'True' else os.getenv('ALLOWED_HOSTS', '').spl
 # Application definition
 
 INSTALLED_APPS = [
+    'baton',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -50,6 +51,13 @@ INSTALLED_APPS = [
     'backend',
     'users',
 ]
+
+BATON = {
+    'USE_AI': False,
+    'SHOW_ALL_APPS': True,
+    'COLLAPSE_APP': False,
+    'SITE_HEADER': 'ProcureBot Admin',
+}
 
 AUTHENTICATION_BACKENDS = (
     'social_core.backends.yandex.YandexOAuth2',
