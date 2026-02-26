@@ -14,6 +14,10 @@ from users.models import User
 from .models import (
     Order, Shop, Product, ProductInfo, Category, Parameter, ProductParameter
 )
+from backend.models import Product
+from users.models import User
+from imagekit.cachefiles import ImageCacheFile
+from celery import shared_task
 
 
 @shared_task
@@ -249,3 +253,39 @@ def partner_export(shop_id):
     download_url = f"{settings.EXTERNAL_URL}{filepath}"
 
     return f"Экспорт сохранён: {download_url} ({len(export_data['goods'])} товаров)"
+
+
+
+@shared_task(bind=True)
+def process_user_avatar(self, user_id):
+    """Фоновая обработка аватара"""
+    try:
+        user = User.objects.get(id=user_id)
+        
+        if user.avatar:
+            return f"Avatar ready: {user.email} ({user.avatar.name})"
+        
+        return f"No avatar: {user.email}"
+    
+    except User.DoesNotExist:
+        return f"User {user_id} not found"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+
+@shared_task(bind=True)
+def process_product_images(self, product_id):
+    """Фоновая обработка изображений товара"""
+    try:
+        product = Product.objects.get(id=product_id)
+
+        if product.image:
+            return f"Product ready: {product.name} ({product.image.name})"
+
+        return f"No image: {product.name}"
+
+    except Product.DoesNotExist:
+        return f"Product {product_id} not found"
+    except Exception as e:
+        return f"Error: {str(e)}"

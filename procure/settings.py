@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_filters',
+    'imagekit',
     'drf_spectacular',
     'rest_framework',
     'rest_framework_simplejwt',
@@ -57,6 +58,9 @@ BATON = {
     'SHOW_ALL_APPS': True,
     'COLLAPSE_APP': False,
     'SITE_HEADER': 'ProcureBot Admin',
+    'CHANGE_FORM_TEMPLATE': True,
+    'SHOW_FULL_ACTIONS': True,
+    'ENABLE_NATIVE_CHANGE_LIST_ACTIONS': True,
 }
 
 AUTHENTICATION_BACKENDS = (
@@ -150,6 +154,8 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_CLASSES': [
@@ -251,3 +257,7 @@ SOCIAL_AUTH_SANITIZE_REDIRECTS = False
 
 SOCIAL_AUTH_YANDEX_OAUTH2_CALLBACK_URL = os.getenv('YANDEX_REDIRECT_URI')
 LOGIN_REDIRECT_URL = '/api/v1/auth/token/'
+
+IMAGEKIT_CACHEFILE_DIR = 'imagekit_cache'
+IMAGEKIT_DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+IMAGEKIT_DEFAULT_IMAGE_FORMAT = 'JPEG'

@@ -4,7 +4,10 @@ from django.contrib.auth.models import (
     UserManager,
     BaseUserManager
     )
-
+from imagekit.models import ProcessedImageField, ImageSpecField
+from imagekit.processors import (
+    ResizeToFill
+)
 
 USER_TYPE_CHOICES = (
     ('shop', 'Магазин'),
@@ -75,6 +78,15 @@ class User(AbstractUser):
         default=False,
         verbose_name='Через соцсети'
     )
+    avatar = ProcessedImageField(
+        upload_to='avatars/%Y/%m/%d/',
+        processors=[ResizeToFill(120, 120)],
+        format='JPEG',
+        options={'quality': 85},
+        blank=True,
+        null=True
+    )
+    
 
     def __str__(self):
         return f'{self.get_full_name() or self.email}'

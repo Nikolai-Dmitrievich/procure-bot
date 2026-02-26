@@ -1,5 +1,10 @@
 from django.db import models
 from users.models import User
+from imagekit.models import ProcessedImageField, ImageSpecField
+from imagekit.processors import (
+    ResizeToFill,
+    Adjust
+)
 
 STATE_CHOICES = (
     ('basket', 'Статус корзины'),
@@ -63,7 +68,17 @@ class Product(models.Model):
         on_delete=models.CASCADE
     )
     description = models.TextField(blank=True, default='')
-
+    image = ProcessedImageField(
+        upload_to='products/%Y/%m/',
+        processors=[
+            ResizeToFill(300, 300),
+            Adjust(contrast=1.1, brightness=1.05)
+        ],
+        format='WEBP',
+        options={'quality': 90},
+        blank=True
+    )
+    
     class Meta:
         verbose_name = 'Продукт'
         verbose_name_plural = "Список продуктов"

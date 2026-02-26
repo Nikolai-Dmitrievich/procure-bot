@@ -43,3 +43,5 @@ urllib3==2.6.3
 vine==5.1.0
 wcwidth==0.5.3
 django-baton==5.1.2
+django-imagekit==6.1.0
+Pillow==12.1.1

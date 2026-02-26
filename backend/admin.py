@@ -4,6 +4,7 @@ from .models import (
     Parameter, ProductParameter
 )
 from .tasks import send_email
+from django.utils.html import format_html
 
 
 class ProductParameterInline(admin.TabularInline):
@@ -85,4 +86,20 @@ class ShopAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
 
-admin.site.register([Category, Product, Contact, Parameter])
+ 
+
+
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ['get_image_preview', 'name', 'category']
+    
+    def get_image_preview(self, obj):
+        if obj.image and obj.image.url:
+            return format_html(
+                '<img src="{}" style="width:80px;height:80px;object-fit:cover;border-radius:5px;">',
+                obj.image.url
+            )
+        return 'Нет'
+    get_image_preview.short_description = 'Фото'
+
