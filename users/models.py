@@ -4,7 +4,7 @@ from django.contrib.auth.models import (
     UserManager,
     BaseUserManager
     )
-from imagekit.models import ProcessedImageField, ImageSpecField
+from imagekit.models import ProcessedImageField
 from imagekit.processors import (
     ResizeToFill
 )
@@ -86,7 +86,6 @@ class User(AbstractUser):
         blank=True,
         null=True
     )
-    
 
     def __str__(self):
         return f'{self.get_full_name() or self.email}'

@@ -3,12 +3,13 @@ from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
 from .models import User
 
+
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     """
     Панель управления пользователями с аватаром (Baton совместимо)
     """
-    
+
     fieldsets = (
         (None, {'fields': ('email', 'password', 'type')}),
         ('Personal info', {'fields': ('first_name', 'last_name', 'company', 'position', 'avatar')}),
@@ -18,20 +19,20 @@ class CustomUserAdmin(UserAdmin):
         }),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
-    
+
     add_fieldsets = UserAdmin.add_fieldsets + (
         ('Дополнительно', {
             'fields': ('company', 'position', 'type', 'email_verified', 'is_social_user', 'avatar'),
             'classes': ('wide',)
         }),
     )
-    
+
     list_display = ('email', 'first_name', 'last_name', 'type', 'company', 'is_staff', 'email_verified', 'get_avatar_preview',)
     list_filter = ['type', 'email_verified', 'is_social_user', 'is_staff', 'is_active']
     search_fields = ['email', 'first_name', 'last_name', 'company', 'position']
-    
+
     readonly_fields = ['avatar_preview']
-    
+
     def get_avatar_preview(self, obj):
         """Круглая аватарка 38x38 в списке"""
         if obj.avatar and obj.avatar.url:
@@ -41,7 +42,7 @@ class CustomUserAdmin(UserAdmin):
             )
         return 'Нет аватара'
     get_avatar_preview.short_description = 'Аватар'
-    
+
     def avatar_preview(self, obj):
         """Превью 200px в форме редактирования"""
         if obj.avatar and obj.avatar.url:
