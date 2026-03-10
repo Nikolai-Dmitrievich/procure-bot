@@ -6,6 +6,10 @@ from unittest.mock import patch
 from backend.models import (
     ProductInfo, Shop, Category, Product, Order, Contact, OrderItem
 )
+from django.db import connection
+import time
+from django.test.client import Client
+import gc
 
 User = get_user_model()
 
@@ -106,3 +110,59 @@ class OrderTests(TestCase):
 
         self.assertIsNone(getattr(self.buyer, 'shop', None))
         self.assertEqual(self.shop_owner.shop.id, self.shop.id)
+
+
+class CachePerformanceTests(TestCase):
+    """Тесты производительности django-cachalot кэширования"""
+
+    @classmethod
+    def setUpTestData(cls):
+        """Создаём тестовые данные один раз для всех тестов"""
+        from backend.models import ProductInfo, Shop, Product, Category
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        cls.client = Client()
+
+        shop_owner = User.objects.create_user(
+            username='perf_test', email='perf@test.com', type='shop'
+        )
+        cls.shop = Shop.objects.create(
+            user=shop_owner, name='PerfTestShop', state=True
+        )
+        category = Category.objects.create(name='Тест')
+        product = Product.objects.create(name='PerfTest', category=category)
+
+        for i in range(50):
+            ProductInfo.objects.create(
+                product=product,
+                shop=cls.shop,
+                model=f'Test-{i}',
+                external_id=i,
+                quantity=100,
+                price=1000 + i * 10,
+                price_rrc=1200 + i * 10
+            )
+
+    def test_cache_speedup_api(self):
+        """Тестирует cachalot БЕЗ аутентификации"""
+        url = '/api/v1/products/?limit=10'
+
+        connection.queries_log.clear()
+        gc.collect()
+        start = time.perf_counter()
+        response1 = self.client.get(url, HTTP_HOST='testserver')
+        time1 = time.perf_counter() - start
+        queries1 = len(connection.queries) or 1
+        self.assertEqual(response1.status_code, 200)
+
+        connection.queries_log.clear()
+        gc.collect()
+        start = time.perf_counter()
+        response2 = self.client.get(url, HTTP_HOST='testserver')
+        time2 = time.perf_counter() - start
+        queries2 = len(connection.queries) or 1
+        self.assertEqual(response2.status_code, 200)
+
+        speedup = time1 / time2
+        print(f"CACHALOT: {time1*1000:.0f}ms/{queries1}SQL → {time2*1000:.0f}ms/{queries2}SQL ({speedup:.1f}x)")

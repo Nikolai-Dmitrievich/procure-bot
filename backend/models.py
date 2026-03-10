@@ -1,6 +1,6 @@
 from django.db import models
 from users.models import User
-from imagekit.models import ProcessedImageField, ImageSpecField
+from imagekit.models import ProcessedImageField
 from imagekit.processors import (
     ResizeToFill,
     Adjust
@@ -78,7 +78,7 @@ class Product(models.Model):
         options={'quality': 90},
         blank=True
     )
-    
+
     class Meta:
         verbose_name = 'Продукт'
         verbose_name_plural = "Список продуктов"

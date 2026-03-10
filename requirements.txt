@@ -11,6 +11,7 @@ click-plugins==1.1.1.2
 click-repl==0.3.0
 coverage==7.13.4
 Django==6.0.1
+django-cachalot==2.9.0
 django-filter==25.2
 django-redis==6.0.0
 djangorestframework==3.16.1
@@ -45,3 +46,5 @@ wcwidth==0.5.3
 django-baton==5.1.2
 django-imagekit==6.1.0
 Pillow==12.1.1
+sentry-sdk==2.53.0
+django-silk==5.4.3

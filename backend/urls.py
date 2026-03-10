@@ -54,5 +54,5 @@ urlpatterns = [
         ),
     path('admin/stats/', views.admin_stats, name='admin-stats'),
     path('admin/low-stock/', views.low_stock_list, name='admin-low-stock'),
-    path('api/v1/partners/export/', views.PartnerExport.as_view()),
+    path('api/v1/partners/export/', views.PartnerExport.as_view())
 ]

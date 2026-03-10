@@ -1,7 +1,11 @@
 from django.contrib import admin
 from .models import (
-    ProductInfo, Shop, Category, Product, Order, OrderItem, Contact,
-    Parameter, ProductParameter
+    ProductInfo,
+    Shop,
+    Product,
+    Order,
+    OrderItem,
+    ProductParameter
 )
 from .tasks import send_email
 from django.utils.html import format_html
@@ -86,14 +90,10 @@ class ShopAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
 
- 
-
-
-
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = ['get_image_preview', 'name', 'category']
-    
+
     def get_image_preview(self, obj):
         if obj.image and obj.image.url:
             return format_html(
@@ -102,4 +102,3 @@ class ProductAdmin(admin.ModelAdmin):
             )
         return 'Нет'
     get_image_preview.short_description = 'Фото'
-

@@ -19,7 +19,6 @@ from drf_spectacular.utils import (
     OpenApiTypes,
     OpenApiParameter,
 )
-
 from backend.serializers import (
     ContactSerializer,
     OrderSerializer,
@@ -66,7 +65,7 @@ class PartnerUpdate(APIView):
             file_content = b''
             for chunk in price_file.chunks():
                 file_content += chunk
-            
+
             task = partner_import.delay(file_content, request.user.id)
 
         else:
@@ -146,32 +145,35 @@ class BasketView(APIView):
                 "items_count": 0
             })
 
+        product_ids = list(basket.keys())
+        product_infos = ProductInfo.objects.select_related(
+            'product__category', 'shop'
+        ).filter(id__in=product_ids)
+        product_dict = {pi.id: pi for pi in product_infos}
+
         basket_items = {}
         total_price = 0
 
         for product_id_str, qty_str in basket.items():
-            try:
-                product_info = ProductInfo.objects.select_related(
-                    'product__category', 'shop'
-                ).get(id=product_id_str)
-
-                qty = int(qty_str)
-                item_total = qty * product_info.price
-                total_price += item_total
-
-                basket_items[product_id_str] = {
-                    'quantity': qty,
-                    'name': product_info.product.name,
-                    'model': product_info.model or 'Нет модели',
-                    'category': product_info.product.category.name,
-                    'shop': product_info.shop.name,
-                    'price': float(product_info.price),
-                    'total': float(item_total),
-                    'in_stock': product_info.quantity >= qty
-                }
-            except ProductInfo.DoesNotExist:
+            product_info = product_dict.get(int(product_id_str))
+            if not product_info:
                 BasketService.remove(request.user.id, product_id_str)
                 continue
+
+            qty = int(qty_str)
+            item_total = qty * product_info.price
+            total_price += item_total
+
+            basket_items[product_id_str] = {
+                'quantity': qty,
+                'name': product_info.product.name,
+                'model': product_info.model or 'Нет модели',
+                'category': product_info.product.category.name,
+                'shop': product_info.shop.name,
+                'price': float(product_info.price),
+                'total': float(item_total),
+                'in_stock': product_info.quantity >= qty
+            }
 
         return Response({
             'basket': basket_items,
@@ -314,11 +316,14 @@ class OrderCreateView(APIView):
         contact_id = request.data.get('contact_id')
         contact = get_object_or_404(Contact, id=contact_id, user=request.user)
 
-        total_price = 0
-        product_quantities = []
+        product_ids = list(basket.keys())
+        product_infos = ProductInfo.objects.select_related('product').filter(
+            id__in=product_ids
+        )
 
+        total_price = 0
         for product_id_str, qty_str in basket.items():
-            product_info = get_object_or_404(ProductInfo, id=product_id_str)
+            product_info = product_infos.get(id=product_id_str)
             qty = int(qty_str)
 
             if product_info.quantity < qty:
@@ -329,7 +334,6 @@ class OrderCreateView(APIView):
                 }, status=400)
 
             total_price += qty * product_info.price
-            product_quantities.append((product_info, qty))
 
         with transaction.atomic():
             order = Order.objects.create(
@@ -338,19 +342,22 @@ class OrderCreateView(APIView):
                 state='new'
             )
 
-            for product_info, quantity in product_quantities:
-                product_info = ProductInfo.objects.select_for_update().get(
-                    id=product_info.id
-                )
-                product_info.quantity -= quantity
+            locked_infos = ProductInfo.objects.select_for_update().filter(
+                id__in=product_ids
+            )
+
+            for product_id_str, qty_str in basket.items():
+                product_info = locked_infos.get(id=product_id_str)
+                qty = int(qty_str)
+
+                product_info.quantity -= qty
                 product_info.save(update_fields=['quantity'])
 
-                order_item = OrderItem(
+                OrderItem.objects.create(
                     order=order,
                     product_info=product_info,
-                    quantity=quantity
+                    quantity=qty
                 )
-                order_item.save()
 
         redis_client.delete(f'basket_{request.user.id}')
         send_email.delay(order.id)
@@ -371,13 +378,19 @@ class OrderCreateView(APIView):
 class OrderListView(ListAPIView):
     """Список заказов пользователя."""
     serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Order.objects.filter(user=self.request.user).select_related(
             'contact', 'user'
         ).prefetch_related(
-            'ordered_items__product_info__product__category',
-            'ordered_items__product_info__shop'
+            Prefetch(
+                'ordered_items',
+                queryset=OrderItem.objects.select_related(
+                    'product_info__product__category',
+                    'product_info__shop'
+                )
+            )
         ).order_by('-dt')
 
 
@@ -485,19 +498,26 @@ class PartnerState(APIView):
     )
 )
 class PartnerOrders(ListAPIView):
-    """Заказы для магазина-поставщика."""
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         if self.request.user.type != 'shop':
             return Order.objects.none()
+
         return Order.objects.filter(
             ordered_items__product_info__shop__user=self.request.user
-        ).select_related('contact', 'user').prefetch_related(
-            'ordered_items__product_info__product__category',
-            'ordered_items__product_info__shop'
-        ).order_by('-dt')
+        ).select_related(
+            'contact', 'user'
+        ).prefetch_related(
+            Prefetch(
+                'ordered_items',
+                queryset=OrderItem.objects.select_related(
+                    'product_info__product__category',
+                    'product_info__shop'
+                )
+            )
+        ).distinct().order_by('-dt')
 
 
 @extend_schema(tags=['Admin'])

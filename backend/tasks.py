@@ -1,23 +1,24 @@
 """Celery задачи"""
+import json
+import os
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
 from requests import get
-import json
-import os
 from datetime import datetime
 from django.db.models import Prefetch
-
 from backend.services import redis_client
 from users.models import User
 from .models import (
-    Order, Shop, Product, ProductInfo, Category, Parameter, ProductParameter
+    Order,
+    Shop,
+    Product,
+    ProductInfo,
+    Category,
+    Parameter,
+    ProductParameter
 )
-from backend.models import Product
-from users.models import User
-from imagekit.cachefiles import ImageCacheFile
-from celery import shared_task
 
 
 @shared_task
@@ -255,23 +256,20 @@ def partner_export(shop_id):
     return f"Экспорт сохранён: {download_url} ({len(export_data['goods'])} товаров)"
 
 
-
 @shared_task(bind=True)
 def process_user_avatar(self, user_id):
     """Фоновая обработка аватара"""
     try:
         user = User.objects.get(id=user_id)
-        
+
         if user.avatar:
             return f"Avatar ready: {user.email} ({user.avatar.name})"
-        
         return f"No avatar: {user.email}"
-    
+
     except User.DoesNotExist:
         return f"User {user_id} not found"
     except Exception as e:
         return f"Error: {str(e)}"
-
 
 
 @shared_task(bind=True)
