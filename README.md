@@ -221,6 +221,8 @@ procure-bot/
 │   ├── pipeline.py             # Celery pipeline (импорт/экспорт обработка)
 │   ├── serializers.py          # DRF сериализаторы
 │   ├── views.py                # API представления
+│   ├── oauth_views.py          # OAuth2 базовые классы (Yandex)
+│   ├── oauth_config.py         # Конфигурация OAuth2 провайдеров
 │   ├── urls.py                 # URL маршруты users
 │   └── tests.py                # Тесты users
 ├── static/                     # Статические файлы
@@ -229,7 +231,7 @@ procure-bot/
 ├── manage.py                   # Django управление
 ├── .env.example                # Шаблон конфигурации
 ├── docker-compose.yml          # Docker сервисы
-├── Dockerfile                  # Docker образ
+├── Dockerfile                  # Docker образ (Gunicorn)
 ├── .gitignore                  # Git игнорируемые файлы
 ├── .dockerignore               # Docker игнорируемые файлы
 ├── Makefile                    # Удобные команды

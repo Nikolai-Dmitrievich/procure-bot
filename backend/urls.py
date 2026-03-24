@@ -1,7 +1,4 @@
 from django.urls import path
-
-from drf_spectacular.utils import OpenApiParameter, extend_schema
-
 from . import views
 
 urlpatterns = [
