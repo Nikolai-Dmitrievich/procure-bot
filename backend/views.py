@@ -1,35 +1,81 @@
-from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import Prefetch
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import filters
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.generics import (
-    ListAPIView,
-    RetrieveAPIView,
-    ListCreateAPIView
-    )
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.throttling import AnonRateThrottle
+from django.shortcuts import get_object_or_404
+
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import (
-    extend_schema_view,
-    extend_schema,
-    OpenApiTypes,
     OpenApiParameter,
+    OpenApiTypes,
+    extend_schema,
+    extend_schema_view,
 )
+from rest_framework import filters, serializers
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.generics import (
+    ListAPIView,
+    ListCreateAPIView,
+    RetrieveAPIView,
+)
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
+from rest_framework.views import APIView
+
+from backend.models import Contact, Order, OrderItem, ProductInfo, Shop
 from backend.serializers import (
+    BasketSerializer,
     ContactSerializer,
     OrderSerializer,
-    ProductInfoSerializer,
-    BasketSerializer,
     PartnerUpdateSerializer,
+    ProductInfoSerializer,
 )
 from backend.services import BasketService, redis_client
-from .models import Order, OrderItem, Shop, ProductInfo, Contact
-from .tasks import partner_export, partner_import, send_email
+from backend.tasks import partner_export, partner_import, send_email
 from users.models import User
+
+LOW_STOCK_THRESHOLD = 10
+
+
+class HealthCheckSerializer(serializers.Serializer):
+    """Сериализатор для health check endpoint"""
+
+    status = serializers.CharField()
+    checks = serializers.DictField(
+        child=serializers.CharField(),
+        required=False
+    )
+
+
+@extend_schema(
+    tags=['Health'],
+    responses=HealthCheckSerializer,
+    parameters=[]
+)
+@api_view(['GET'])
+def health_check(request):
+    """Health check endpoint для контейнеров с проверкой зависимостей"""
+
+    from django.core.cache import cache
+    from django.db import connection
+
+    checks = {}
+    overall_status = 'healthy'
+
+    try:
+        connection.ensure_connection()
+        checks['database'] = 'ok'
+    except Exception:
+        checks['database'] = 'error'
+        overall_status = 'unhealthy'
+
+    try:
+        cache.get('health_check')
+        checks['redis'] = 'ok'
+    except Exception:
+        checks['redis'] = 'error'
+        overall_status = 'unhealthy'
+
+    return Response({'status': overall_status, 'checks': checks})
 
 
 @extend_schema_view(
@@ -45,6 +91,7 @@ class PartnerUpdate(APIView):
     Принимает URL прайса или загруженный файл.
     Запускает асинхронную задачу импорта через Celery.
     """
+
     serializer_class = PartnerUpdateSerializer
     permission_classes = [IsAuthenticated]
 
@@ -86,12 +133,12 @@ class PartnerUpdate(APIView):
                 name='shop',
                 type=int,
                 location=OpenApiParameter.QUERY
-                ),
+            ),
             OpenApiParameter(
                 name='price',
                 type=int,
                 location=OpenApiParameter.QUERY
-                ),
+            ),
         ]
     )
 )
@@ -101,6 +148,7 @@ class ProductListView(ListAPIView):
     Поддерживает фильтрацию по цене, количеству, магазину.
     Поиск по названию продукта и модели.
     """
+
     throttle_classes = [AnonRateThrottle]
     queryset = ProductInfo.objects.select_related(
         'product__category', 'shop'
@@ -134,6 +182,7 @@ class ProductListView(ListAPIView):
 )
 class BasketView(APIView):
     """Управление корзиной покупок пользователя"""
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -199,6 +248,7 @@ class BasketView(APIView):
 )
 class BasketClearView(APIView):
     """Очистка корзины пользователя"""
+
     permission_classes = [IsAuthenticated]
 
     def delete(self, request):
@@ -214,6 +264,7 @@ class BasketClearView(APIView):
 )
 class ProductDetailView(APIView):
     """Детальная информация о товаре"""
+
     throttle_classes = [AnonRateThrottle]
 
     def get(self, request, pk):
@@ -240,10 +291,13 @@ class ContactListCreateView(ListCreateAPIView):
     Список и создание контактов пользователя.
     Только свои контакты доступны для просмотра/создания.
     """
+
     serializer_class = ContactSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Contact.objects.none()
         return Contact.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
@@ -265,6 +319,7 @@ class ContactListCreateView(ListCreateAPIView):
 )
 class ContactUpdateDeleteView(APIView):
     """Обновление и удаление контакта пользователя."""
+
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
@@ -273,7 +328,7 @@ class ContactUpdateDeleteView(APIView):
             contact,
             data=request.data,
             partial=True
-            )
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -306,6 +361,7 @@ class OrderCreateView(APIView):
     Проверяет наличие товаров на складе, создает OrderItem,
     уменьшает остатки, отправляет email-уведомление.
     """
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -377,10 +433,13 @@ class OrderCreateView(APIView):
 )
 class OrderListView(ListAPIView):
     """Список заказов пользователя."""
+
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Order.objects.none()
         return Order.objects.filter(user=self.request.user).select_related(
             'contact', 'user'
         ).prefetch_related(
@@ -402,6 +461,7 @@ class OrderListView(ListAPIView):
 )
 class OrderDetailView(RetrieveAPIView):
     """Детальная информация о заказе."""
+
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
@@ -438,6 +498,7 @@ class OrderStatusUpdateView(APIView):
     Обновление статуса заказа.
     Доступно только для заказов с товарами своего магазина.
     """
+
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
@@ -471,6 +532,7 @@ class OrderStatusUpdateView(APIView):
 )
 class PartnerState(APIView):
     """Управление состоянием магазина-поставщика"""
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -502,6 +564,8 @@ class PartnerOrders(ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Order.objects.none()
         if self.request.user.type != 'shop':
             return Order.objects.none()
 
@@ -530,11 +594,14 @@ def admin_stats(request):
     Заказы: количество, выручка.
     Пользователи и магазины.
     """
+
     stats = {
         'warehouse': {
             'total_products': ProductInfo.objects.count(),
             'available': ProductInfo.objects.filter(quantity__gt=0).count(),
-            'low_stock': ProductInfo.objects.filter(quantity__lt=10).count(),
+            'low_stock': ProductInfo.objects.filter(
+                quantity__lt=LOW_STOCK_THRESHOLD
+            ).count(),
         },
         'orders': {
             'total': Order.objects.count(),
@@ -557,7 +624,10 @@ def low_stock_list(request):
     Список товаров с низким остатком (<10).
     Ограничено 20 товарами, содержит информацию о магазине и цене.
     """
-    products = ProductInfo.objects.filter(quantity__lt=10).select_related(
+
+    products = ProductInfo.objects.filter(
+        quantity__lt=LOW_STOCK_THRESHOLD
+    ).select_related(
         'product', 'shop'
     )[:20]
     return Response([{
@@ -585,6 +655,7 @@ def low_stock_list(request):
 )
 class PartnerExport(APIView):
     """Экспорт прайса магазина в фоновом режиме"""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):

@@ -19,3 +19,9 @@ superuser:
 
 restart:
 	docker compose restart web
+
+# Local development with gunicorn
+run:
+	python manage.py migrate --noinput && \
+	python manage.py collectstatic --noinput && \
+	gunicorn procure.wsgi:application --bind 127.0.0.1:8000 --workers 2 --reload

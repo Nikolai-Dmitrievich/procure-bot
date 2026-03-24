@@ -11,32 +11,27 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
-import sentry_sdk
-from sentry_sdk.integrations.django import DjangoIntegration
-from sentry_sdk.integrations.celery import CeleryIntegration
-from pathlib import Path
-from dotenv import load_dotenv
 from datetime import timedelta
+from pathlib import Path
+
+import sentry_sdk
+from dotenv import load_dotenv
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
 
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError('SECRET_KEY environment variable must be set')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG')
+DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ['*'] if DEBUG == 'True' else os.getenv('ALLOWED_HOSTS', '').split(',')
-
-
-# Application definition
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
+if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['']:
+    raise ValueError('ALLOWED_HOSTS must be set in production')
 
 INSTALLED_APPS = [
     'baton',
@@ -68,7 +63,6 @@ BATON = {
     'ENABLE_NATIVE_CHANGE_LIST_ACTIONS': True,
 }
 
-
 SENTRY_DSN = os.getenv('SENTRY_DSN')
 
 if SENTRY_DSN:
@@ -90,7 +84,6 @@ AUTHENTICATION_BACKENDS = (
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 
 MIDDLEWARE = [
-    'silk.middleware.SilkyMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -99,6 +92,9 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+if DEBUG:
+    MIDDLEWARE.insert(1, 'silk.middleware.SilkyMiddleware')
 
 ROOT_URLCONF = 'procure.urls'
 
@@ -120,9 +116,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'procure.wsgi.application'
 AUTH_USER_MODEL = 'users.User'
 
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': os.getenv('DB_ENGINE'),
@@ -134,28 +127,32 @@ DATABASES = {
     }
 }
 
-
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.'
+            'UserAttributeSimilarityValidator'
+        ),
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.'
+            'MinimumLengthValidator'
+        ),
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.'
+            'CommonPasswordValidator'
+        ),
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.'
+            'NumericPasswordValidator'
+        ),
     },
 ]
-
-
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
 
@@ -164,10 +161,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
@@ -183,9 +176,13 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '1000000/hour',
-        'user': '1000000/hour',
+        'anon': '100/hour',
+        'user': '1000/hour',
     },
+    'DEFAULT_PAGINATION_CLASS': (
+        'rest_framework.pagination.PageNumberPagination'
+    ),
+    'PAGE_SIZE': 50,
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
@@ -235,20 +232,21 @@ DEFAULT_FROM_EMAIL = f'ProcureBot <{EMAIL_HOST_USER}>'
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': f'redis://{os.getenv('REDIS_HOST')}:{os.getenv('REDIS_PORT')}/{os.getenv('REDIS_DB')}',
+        'LOCATION': (
+            f'redis://{os.getenv("REDIS_HOST")}:'
+            f'{os.getenv("REDIS_PORT")}/{os.getenv("REDIS_DB")}'
+        ),
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         }
     }
 }
 
-
 CACHALOT_SIZE_LIMIT = 100 * 1024 * 1024
 CACHALOT_TABLE_SIZES = {
     'backend_productinfo': 50 * 1024 * 1024,
     'backend_shop': 10 * 1024 * 1024,
 }
-
 
 REDIS_HOST = os.getenv('REDIS_HOST')
 REDIS_PORT = os.getenv('REDIS_PORT')
@@ -275,18 +273,38 @@ SOCIAL_AUTH_YANDEX_OAUTH2_KEY = os.getenv('YANDEX_CLIENT_ID')
 SOCIAL_AUTH_YANDEX_OAUTH2_SECRET = os.getenv('YANDEX_CLIENT_SECRET')
 SOCIAL_AUTH_YANDEX_OAUTH2_SCOPE = ['login:email', 'login:info', 'login:avatar']
 
-SECURE_SSL_REDIRECT = False
-SESSION_COOKIE_SECURE = False
-SESSION_COOKIE_SAMESITE = 'Lax'
+SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False') == 'True'
+SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False') == 'True'
+SESSION_COOKIE_SAMESITE = os.getenv('SESSION_COOKIE_SAMESITE', 'Lax')
+SESSION_COOKIE_HTTPONLY = True
 
-SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
-SOCIAL_AUTH_SANITIZE_REDIRECTS = False
+CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False') == 'True'
+CSRF_COOKIE_HTTPONLY = True
 
+SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv(
+    'SECURE_HSTS_INCLUDE_SUBDOMAINS', 'False'
+) == 'True'
+SECURE_HSTS_PRELOAD = os.getenv('SECURE_HSTS_PRELOAD', 'False') == 'True'
+
+SECURE_CONTENT_TYPE_NOSNIFF = os.getenv(
+    'SECURE_CONTENT_TYPE_NOSNIFF', 'True'
+) == 'True'
+X_FRAME_OPTIONS = os.getenv('X_FRAME_OPTIONS', 'DENY')
+
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = (
+    os.getenv('SOCIAL_AUTH_REDIRECT_IS_HTTPS', 'False') == 'True'
+)
+SOCIAL_AUTH_SANITIZE_REDIRECTS = True
+SOCIAL_AUTH_ALLOWED_REDIRECT_HOSTS = os.getenv(
+    'ALLOWED_REDIRECT_HOSTS', ''
+).split(',')
 
 SOCIAL_AUTH_YANDEX_OAUTH2_CALLBACK_URL = os.getenv('YANDEX_REDIRECT_URI')
 LOGIN_REDIRECT_URL = '/api/v1/auth/token/'
 
 IMAGEKIT_CACHEFILE_DIR = 'imagekit_cache'
-IMAGEKIT_DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+IMAGEKIT_DEFAULT_FILE_STORAGE = (
+    'django.core.files.storage.FileSystemStorage'
+)
 IMAGEKIT_DEFAULT_IMAGE_FORMAT = 'JPEG'
-

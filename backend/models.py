@@ -1,10 +1,10 @@
+from django.core.validators import RegexValidator
 from django.db import models
-from users.models import User
+
 from imagekit.models import ProcessedImageField
-from imagekit.processors import (
-    ResizeToFill,
-    Adjust
-)
+from imagekit.processors import Adjust, ResizeToFill
+
+from users.models import User
 
 STATE_CHOICES = (
     ('basket', 'Статус корзины'),
@@ -19,6 +19,7 @@ STATE_CHOICES = (
 
 class Shop(models.Model):
     """Магазин с привязкой к пользователю"""
+
     name = models.CharField(max_length=50, verbose_name='Название')
     url = models.URLField(verbose_name='Ссылка', null=True, blank=True)
     user = models.OneToOneField(
@@ -44,6 +45,7 @@ class Shop(models.Model):
 
 class Category(models.Model):
     """Категория товаров с привязкой к магазинам"""
+
     name = models.CharField(max_length=40, verbose_name='Название')
     shops = models.ManyToManyField(
         Shop, verbose_name='Магазины',
@@ -61,6 +63,7 @@ class Category(models.Model):
 
 class Product(models.Model):
     """Продукт с описанием и категорией"""
+
     name = models.CharField(max_length=80, verbose_name='Название')
     category = models.ForeignKey(
         Category, verbose_name='Категория',
@@ -90,6 +93,7 @@ class Product(models.Model):
 
 class ProductInfo(models.Model):
     """Информация о продукте в конкретном магазине"""
+
     model = models.CharField(max_length=80, verbose_name='Модель', blank=True)
     external_id = models.PositiveIntegerField(verbose_name='Внешний ИД')
     product = models.ForeignKey(
@@ -102,11 +106,13 @@ class ProductInfo(models.Model):
         related_name='product_infos', blank=True,
         on_delete=models.CASCADE
     )
-    quantity = models.PositiveIntegerField(verbose_name='Количество')
-    price = models.PositiveIntegerField(verbose_name='Цена')
+    quantity = models.PositiveIntegerField(
+        verbose_name='Количество', db_index=True
+    )
+    price = models.PositiveIntegerField(verbose_name='Цена', db_index=True)
     price_rrc = models.PositiveIntegerField(
         verbose_name='Рекомендуемая розничная цена'
-        )
+    )
 
     class Meta:
         verbose_name = 'Информация о продукте'
@@ -121,6 +127,7 @@ class ProductInfo(models.Model):
 
 class Parameter(models.Model):
     """Параметр товара"""
+
     name = models.CharField(max_length=40, verbose_name='Название')
 
     class Meta:
@@ -134,6 +141,7 @@ class Parameter(models.Model):
 
 class ProductParameter(models.Model):
     """Связь параметра с конкретным продуктом"""
+
     product_info = models.ForeignKey(
         ProductInfo, verbose_name='Информация о продукте',
         related_name='product_parameters', blank=True,
@@ -159,6 +167,7 @@ class ProductParameter(models.Model):
 
 class Contact(models.Model):
     """Контактная информация пользователя для доставки"""
+
     user = models.ForeignKey(
         User, verbose_name='Пользователь',
         related_name='contacts', blank=True,
@@ -168,28 +177,37 @@ class Contact(models.Model):
     street = models.CharField(
         max_length=100,
         verbose_name='Улица'
-        )
+    )
     house = models.CharField(
         max_length=15,
         verbose_name='Дом',
         blank=True
-        )
+    )
     structure = models.CharField(
         max_length=15,
         verbose_name='Корпус',
         blank=True
-        )
+    )
     building = models.CharField(
         max_length=15,
         verbose_name='Строение',
         blank=True
-        )
+    )
     apartment = models.CharField(
         max_length=15,
         verbose_name='Квартира',
         blank=True
-        )
-    phone = models.CharField(max_length=20, verbose_name='Телефон')
+    )
+    phone = models.CharField(
+        max_length=20,
+        verbose_name='Телефон',
+        validators=[
+            RegexValidator(
+                regex=r'^\+?[\d\s\-\(\)]{10,20}$',
+                message='Неверный формат телефона'
+            )
+        ]
+    )
 
     class Meta:
         verbose_name = 'Контакты пользователя'
@@ -201,6 +219,7 @@ class Contact(models.Model):
 
 class Order(models.Model):
     """Заказ пользователя с состоянием"""
+
     user = models.ForeignKey(
         User, verbose_name='Пользователь',
         related_name='orders', blank=True,
@@ -208,7 +227,7 @@ class Order(models.Model):
     )
     dt = models.DateTimeField(auto_now_add=True)
     state = models.CharField(
-        verbose_name='Статус', choices=STATE_CHOICES, max_length=15
+        verbose_name='Статус', choices=STATE_CHOICES, max_length=15, db_index=True
     )
     contact = models.ForeignKey(
         Contact, verbose_name='Контакт',
@@ -224,9 +243,18 @@ class Order(models.Model):
     def __str__(self):
         return str(self.dt)
 
+    def get_total_price(self):
+        """Расчёт общей стоимости заказа"""
+
+        return sum(
+            item.quantity * item.product_info.price
+            for item in self.ordered_items.all()
+        )
+
 
 class OrderItem(models.Model):
     """Позиция в заказе"""
+
     order = models.ForeignKey(
         Order, verbose_name='Заказ',
         related_name='ordered_items', blank=True,

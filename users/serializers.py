@@ -4,13 +4,15 @@
 с системой пользователей ProcureBot.
 """
 
-from rest_framework import serializers
 from django.contrib.auth import authenticate
+from rest_framework import serializers
+
 from .models import User
 
 
 class LoginSerializer(serializers.Serializer):
     """Сериализатор для аутентификации пользователей по email/password"""
+
     email = serializers.EmailField()
     password = serializers.CharField()
 
@@ -31,6 +33,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     Поддерживает типы: buyer (покупатель) и shop (магазин).
     Создает неактивного пользователя (требует верификации email).
     """
+
     password_confirm = serializers.CharField(write_only=True)
     type = serializers.ChoiceField(
         choices=[('buyer', 'Buyer'), ('shop', 'Shop')],
@@ -77,6 +80,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     """Сериализатор для отображения информации о пользователе"""
+
     is_active = serializers.BooleanField(default=False, read_only=True)
 
     class Meta:

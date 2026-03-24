@@ -1,21 +1,30 @@
+import gc
 import os
 import tempfile
-from django.test import TestCase
-from django.contrib.auth import get_user_model
-from unittest.mock import patch
-from backend.models import (
-    ProductInfo, Shop, Category, Product, Order, Contact, OrderItem
-)
-from django.db import connection
 import time
-from django.test.client import Client
-import gc
+from unittest.mock import patch
+
+import django.test.client as client
+from django.contrib.auth import get_user_model
+from django.db import connection
+from django.test import TestCase
+
+from backend.models import (
+    Category,
+    Contact,
+    Order,
+    OrderItem,
+    Product,
+    ProductInfo,
+    Shop,
+)
 
 User = get_user_model()
 
 
 class BackendCoreTests(TestCase):
     """Тесты загрузки прайса и расчета стоимости"""
+
     def setUp(self):
         self.shop_owner = User.objects.create_user(
             username='shop_test', email='shop@test.com', type='shop'
@@ -27,11 +36,12 @@ class BackendCoreTests(TestCase):
         self.product = Product.objects.create(
             name='Test',
             category=self.category
-            )
+        )
 
     @patch('backend.tasks.partner_import.delay')
     def test_price_import_task(self, mock_task):
         """Тестирует загрузку прайса через Celery задачу"""
+
         yaml_data = """
         products:
           - name: Test Product
@@ -44,7 +54,7 @@ class BackendCoreTests(TestCase):
                 mode='w',
                 suffix='.yaml',
                 delete=False
-            ) as f:
+        ) as f:
             f.write(yaml_data)
             file_path = f.name
 
@@ -56,6 +66,7 @@ class BackendCoreTests(TestCase):
 
     def test_price_calculation(self):
         """Тестирует расчет общей стоимости товара"""
+
         product_info = ProductInfo.objects.create(
             product=self.product, shop=self.shop, model='Test',
             external_id=12345, quantity=10, price=1000, price_rrc=1200
@@ -81,7 +92,7 @@ class OrderTests(TestCase):
         self.product = Product.objects.create(
             name='Test',
             category=self.category
-            )
+        )
         self.product_info = ProductInfo.objects.create(
             product=self.product, shop=self.shop, model='Test',
             external_id=12345, quantity=50, price=1000, price_rrc=1200
@@ -92,6 +103,7 @@ class OrderTests(TestCase):
 
     def test_order_creation(self):
         """Тестирует создание заказа с позициями"""
+
         order = Order.objects.create(user=self.buyer, state='new')
         OrderItem.objects.create(
             order=order, product_info=self.product_info, quantity=2
@@ -100,11 +112,12 @@ class OrderTests(TestCase):
         total_price = sum(
             item.quantity * item.product_info.price
             for item in order.ordered_items.all()
-            )
+        )
         self.assertEqual(total_price, 2000)
 
     def test_access_rights(self):
         """Тестирует различия прав покупателя и магазина"""
+
         self.assertEqual(self.buyer.type, 'buyer')
         self.assertEqual(self.shop_owner.type, 'shop')
 
@@ -118,11 +131,12 @@ class CachePerformanceTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         """Создаём тестовые данные один раз для всех тестов"""
-        from backend.models import ProductInfo, Shop, Product, Category
+
+        from backend.models import Category, Product, ProductInfo, Shop
         from django.contrib.auth import get_user_model
 
         User = get_user_model()
-        cls.client = Client()
+        cls.client = client.Client()
 
         shop_owner = User.objects.create_user(
             username='perf_test', email='perf@test.com', type='shop'
@@ -146,6 +160,7 @@ class CachePerformanceTests(TestCase):
 
     def test_cache_speedup_api(self):
         """Тестирует cachalot БЕЗ аутентификации"""
+
         url = '/api/v1/products/?limit=10'
 
         connection.queries_log.clear()
@@ -165,4 +180,7 @@ class CachePerformanceTests(TestCase):
         self.assertEqual(response2.status_code, 200)
 
         speedup = time1 / time2
-        print(f"CACHALOT: {time1*1000:.0f}ms/{queries1}SQL → {time2*1000:.0f}ms/{queries2}SQL ({speedup:.1f}x)")
+        print(
+            f"CACHALOT: {time1*1000:.0f}ms/{queries1}SQL → "
+            f"{time2*1000:.0f}ms/{queries2}SQL ({speedup:.1f}x)"
+        )

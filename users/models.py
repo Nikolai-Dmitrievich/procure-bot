@@ -1,18 +1,12 @@
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-from django.contrib.auth.models import (
-    AbstractUser,
-    UserManager,
-    BaseUserManager
-    )
+
 from imagekit.models import ProcessedImageField
-from imagekit.processors import (
-    ResizeToFill
-)
+from imagekit.processors import ResizeToFill
 
 USER_TYPE_CHOICES = (
     ('shop', 'Магазин'),
     ('buyer', 'Покупатель'),
-
 )
 
 
@@ -50,6 +44,7 @@ class User(AbstractUser):
     """
     Стандартная модель пользователей
     """
+
     REQUIRED_FIELDS = []
     USERNAME_FIELD = 'email'
     objects = UserManager()
@@ -57,23 +52,23 @@ class User(AbstractUser):
         verbose_name='Компания',
         max_length=40,
         blank=True
-        )
+    )
     position = models.CharField(
         verbose_name='Должность',
         max_length=40,
         blank=True
-        )
+    )
     email = models.EmailField(unique=True, verbose_name='Email')
     type = models.CharField(
         verbose_name='Тип пользователя',
         choices=USER_TYPE_CHOICES,
         max_length=5,
         default='buyer'
-        )
+    )
     email_verified = models.BooleanField(
         default=False,
         verbose_name='Email подтвержден'
-        )
+    )
     is_social_user = models.BooleanField(
         default=False,
         verbose_name='Через соцсети'

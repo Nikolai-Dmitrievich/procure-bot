@@ -2,24 +2,26 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-procure_db}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-procure_db}']
       interval: 10s
       timeout: 5s
       retries: 5
     volumes:
       - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
 
   redis:
     image: redis:alpine
+    restart: unless-stopped
 
   web:
     build: .
     ports:
-      - "${WEB_PORT:-8000}:8000"
+      - '${WEB_PORT:-8000}:8000'
     depends_on:
       db:
         condition: service_healthy
@@ -28,9 +30,15 @@ services:
     environment:
       - DB_HOST=${DB_HOST:-db}
       - REDIS_HOST=${REDIS_HOST:-redis}
-      - DB_NAME=${DB_NAME:-procure_db}
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/v1/health/']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
 
   celery:
     build: .
@@ -40,9 +48,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    environment: 
+    environment:
       - DB_HOST=${DB_HOST:-db}
       - REDIS_HOST=${REDIS_HOST:-redis}
+    restart: unless-stopped
 
 volumes:
   db_data:

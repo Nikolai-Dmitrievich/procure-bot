@@ -1,29 +1,29 @@
-import requests
+import logging
+
+from django.conf import settings
+from django.shortcuts import redirect
 from drf_spectacular.utils import (
-    extend_schema_view,
-    extend_schema,
-    OpenApiTypes,
     OpenApiParameter,
+    OpenApiTypes,
+    extend_schema,
+    extend_schema_view,
 )
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework import generics, status
-from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
-from .serializers import (
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from backend.services import redis_client
+from users.models import User
+from users.serializers import (
     LoginSerializer,
     RegisterSerializer,
     SocialTokenSerializer,
-    UserSerializer
-    )
-from .models import User
-from backend.services import redis_client
-from django.conf import settings
-from django.shortcuts import redirect
-from django.http import HttpResponseBadRequest
-import logging
-
+    UserSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,9 @@ class LoginView(generics.GenericAPIView):
     Проверяет email_verified для обычных пользователей.
     Staff/superuser получают токены без верификации.
     """
+
     serializer_class = LoginSerializer
+    throttle_classes = [AnonRateThrottle]
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -77,8 +79,10 @@ class LoginView(generics.GenericAPIView):
 )
 class RegisterView(generics.CreateAPIView):
     """Регистрация нового пользователя с автоматической отправкой email"""
+
     serializer_class = RegisterSerializer
     queryset = User.objects.all()
+    throttle_classes = [AnonRateThrottle]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -107,6 +111,7 @@ class RegisterView(generics.CreateAPIView):
 )
 class AccountDetails(APIView):
     """Получение и обновление данных текущего пользователя"""
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -131,12 +136,12 @@ class AccountDetails(APIView):
             name='token',
             type=str,
             location=OpenApiParameter.QUERY
-            ),
+        ),
         OpenApiParameter(
             name='email',
             type=str,
             location=OpenApiParameter.QUERY
-            ),
+        ),
     ]
 )
 @api_view(['GET'])
@@ -145,6 +150,7 @@ def verify_email_link(request):
     Подтверждение email через GET ссылку из письма.
     Проверяет токен в Redis и активирует пользователя.
     """
+
     token = request.GET.get('token')
     email = request.GET.get('email')
 
@@ -165,67 +171,9 @@ def verify_email_link(request):
 @permission_classes([IsAuthenticated])
 def user_delete(request):
     """Полное удаление аккаунта текущего пользователя"""
+
     request.user.delete()
     return Response({'status': 'Аккаунт удалён'}, status=200)
-
-
-@extend_schema(tags=['Авторизация (Social)'])
-@api_view(['GET'])
-def yandex_auth(request):
-    """Яндекс OAuth2 — ПРЯМЫЙ РЕДИРЕКТ НА ЯНДЕКС"""
-    auth_url = (
-        f"https://oauth.yandex.ru/authorize?"
-        f"response_type=code&"
-        f"client_id={settings.SOCIAL_AUTH_YANDEX_OAUTH2_KEY}&"
-        f"redirect_uri={settings.SOCIAL_AUTH_YANDEX_OAUTH2_CALLBACK_URL}&"
-        f"scope=login:email login:info"
-    )
-    return redirect(auth_url)
-
-
-def yandexcomplete(request):
-    """ПРЯМАЯ ЯНДЕКС OAUTH2 — CODE → JWT"""
-    code = request.GET.get('code')
-    logger.info(f"YANDEX CODE: {code}")
-
-    if not code:
-        return HttpResponseBadRequest('No code')
-
-    token_data = {
-        'grant_type': 'authorization_code',
-        'code': code,
-        'client_id': settings.SOCIAL_AUTH_YANDEX_OAUTH2_KEY,
-        'client_secret': settings.SOCIAL_AUTH_YANDEX_OAUTH2_SECRET,
-    }
-
-    token_resp = requests.post(
-        'https://oauth.yandex.ru/token',
-        data=token_data
-        ).json()
-    access_token = token_resp.get('access_token')
-
-    if not access_token:
-        logger.error(f"Token fail: {token_resp}")
-        return HttpResponseBadRequest('Token exchange failed')
-
-    user_info = requests.get(
-        'https://login.yandex.ru/info',
-        params={'format': 'json', 'oauth_token': access_token}
-    ).json()
-
-    email = user_info.get('default_email') or user_info.get('emails', [None])[0]
-    logger.info(f"Yandex user: {email}")
-
-    user, created = User.objects.get_or_create(
-        email=email,
-        defaults={'username': email.split('@')[0], 'type': 'buyer',
-                 'is_social_user': True, 'is_active': True}
-    )
-
-    refresh = RefreshToken.for_user(user)
-    return redirect(
-        f"{settings.BASE_URL}/api/v1/auth/token/?social_email={email}"
-    )
 
 
 @extend_schema(
@@ -243,10 +191,12 @@ def yandexcomplete(request):
 )
 class SocialTokenView(APIView):
     """JWT для OAuth пользователей (GET/POST)"""
+
     serializer_class = SocialTokenSerializer
 
     def get(self, request):
         """GET: JWT по social_email из query params"""
+
         social_email = request.GET.get('social_email')
 
         if not social_email:
@@ -262,7 +212,7 @@ class SocialTokenView(APIView):
             return Response(
                 {'error': 'Соц. пользователь не найден'},
                 status=400
-                )
+            )
 
         refresh = RefreshToken.for_user(user)
         return Response({
@@ -274,6 +224,7 @@ class SocialTokenView(APIView):
 
     def post(self, request):
         """POST: JWT по social_email"""
+
         social_email = request.data.get('social_email')
 
         user = User.objects.filter(
@@ -286,11 +237,81 @@ class SocialTokenView(APIView):
             return Response(
                 {'error': 'OAuth пользователь не найден'},
                 status=400
-                )
+            )
 
         refresh = RefreshToken.for_user(user)
         return Response({
             'access': str(refresh.access_token()),
             'refresh': str(refresh),
             'user': {'email': user.email, 'type': user.type}
+        })
+
+
+class SelectUserTypeView(APIView):
+    """Выбор типа пользователя после OAuth авторизации"""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=['Авторизация (Social)'],
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'type': {
+                        'type': 'string',
+                        'enum': ['buyer', 'shop'],
+                        'example': 'buyer'
+                    }
+                },
+                'required': ['type']
+            }
+        },
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'access': {'type': 'string'},
+                    'refresh': {'type': 'string'},
+                    'user': {
+                        'type': 'object',
+                        'properties': {
+                            'email': {'type': 'string'},
+                            'type': {'type': 'string'},
+                            'is_social_user': {'type': 'boolean'}
+                        }
+                    }
+                }
+            },
+            400: {
+                'type': 'object',
+                'properties': {
+                    'error': {'type': 'string'}
+                }
+            }
+        }
+    )
+    def post(self, request):
+        """Установка типа пользователя (buyer или shop)"""
+
+        user_type = request.data.get('type')
+
+        if user_type not in ['buyer', 'shop']:
+            return Response(
+                {'error': 'Тип должен быть buyer или shop'},
+                status=400
+            )
+
+        request.user.type = user_type
+        request.user.save()
+
+        refresh = RefreshToken.for_user(request.user)
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': {
+                'email': request.user.email,
+                'type': request.user.type,
+                'is_social_user': request.user.is_social_user
+            }
         })

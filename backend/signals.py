@@ -1,11 +1,9 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from users.models import User
+
 from backend.models import Product
-from backend.tasks import (
-    process_user_avatar,
-    process_product_images
-)
+from backend.tasks import process_product_images, process_user_avatar
+from users.models import User
 
 
 @receiver(post_save, sender=User)

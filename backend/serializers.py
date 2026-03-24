@@ -1,11 +1,23 @@
+from typing import Optional
+
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+from rest_framework.fields import SerializerMethodField
+
 from backend.models import (
-    ProductInfo, Product, Shop, ProductParameter, Contact, Order, OrderItem
+    Contact,
+    Order,
+    OrderItem,
+    Product,
+    ProductInfo,
+    ProductParameter,
+    Shop,
 )
 
 
 class PartnerUpdateSerializer(serializers.Serializer):
     """Сериализатор для обновления прайса партнера"""
+
     url = serializers.URLField(required=False)
     price_file = serializers.FileField(required=False)
 
@@ -17,8 +29,9 @@ class PartnerUpdateSerializer(serializers.Serializer):
 
 class ContactSerializer(serializers.ModelSerializer):
     """Сериализатор контактной информации"""
+
     user_name = serializers.CharField(source='user.username', read_only=True)
-    full_address = serializers.SerializerMethodField()
+    full_address = SerializerMethodField()
 
     class Meta:
         model = Contact
@@ -27,16 +40,18 @@ class ContactSerializer(serializers.ModelSerializer):
             'user': {'write_only': True}
         }
 
+    @extend_schema_field(str)
     def get_full_address(self, obj):
         return f"{obj.street}, {obj.city}" if obj.street else obj.city
 
 
 class ProductSerializer(serializers.ModelSerializer):
     """Сериализатор продукта"""
+
     category_name = serializers.CharField(
         source='category.name',
         read_only=True
-        )
+    )
 
     class Meta:
         model = Product
@@ -45,6 +60,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     """Сериализатор позиции заказа"""
+
     product_name = serializers.CharField(
         source='product_info.product.name', read_only=True
     )
@@ -62,8 +78,9 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     """Сериализатор заказа с вложенными позициями"""
+
     ordered_items = OrderItemSerializer(many=True, read_only=True)
-    total_price = serializers.SerializerMethodField()
+    total_price = SerializerMethodField()
 
     class Meta:
         model = Order
@@ -74,13 +91,11 @@ class OrderSerializer(serializers.ModelSerializer):
             'dt',
             'state',
             'contact'
-            ]
+        ]
 
+    @extend_schema_field(float)
     def get_total_price(self, obj):
-        return sum(
-            item.quantity * item.product_info.price
-            for item in obj.ordered_items.all()
-        )
+        return obj.get_total_price()
 
 
 class ShopSerializer(serializers.ModelSerializer):
@@ -93,6 +108,7 @@ class ShopSerializer(serializers.ModelSerializer):
 
 class ProductParameterSerializer(serializers.ModelSerializer):
     """Сериализатор параметров продукта"""
+
     parameter = serializers.CharField(source='parameter.name')
 
     class Meta:
@@ -102,12 +118,13 @@ class ProductParameterSerializer(serializers.ModelSerializer):
 
 class ProductInfoSerializer(serializers.ModelSerializer):
     """Детальный сериализатор информации о продукте"""
+
     product = ProductSerializer()
     shop = ShopSerializer()
     parameters = ProductParameterSerializer(
         source='product_parameters', many=True
     )
-    in_stock = serializers.SerializerMethodField()
+    in_stock = SerializerMethodField()
 
     class Meta:
         model = ProductInfo
@@ -116,11 +133,13 @@ class ProductInfoSerializer(serializers.ModelSerializer):
             'in_stock', 'product', 'shop', 'parameters'
         ]
 
+    @extend_schema_field(bool)
     def get_in_stock(self, obj):
         return obj.quantity > 0
 
 
 class BasketSerializer(serializers.Serializer):
     """Сериализатор корзины"""
+
     product_info_id = serializers.IntegerField()
     quantity = serializers.IntegerField(default=1, min_value=1)
